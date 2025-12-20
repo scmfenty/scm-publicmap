@@ -1,238 +1,343 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8">
-  <title>Los Santos County</title>
+<meta charset="utf-8">
+<title>Los Santos County</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+body { margin:0; padding:0; }
+#map { width:100vw; height:100vh; background:#000; }
 
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+#logo {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 100px;
+  height: auto;
+  z-index: 10000;
+  pointer-events: none;
+  filter: drop-shadow(2px 2px 4px rgba(255,255,255,0.3));
+}
 
-  <style>
-    body { margin: 0; padding: 0; }
-    #map { height: 100vh; width: 100vw; background: #000; }
+#coords {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.8);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-family: Arial;
+  font-size: 14px;
+  z-index: 9999;
+  pointer-events: none;
+}
 
-    #logo {
-      position: fixed;   /* reste fixé à l’écran */
-      bottom: 20px;      /* 10px depuis le bas */
-      right: 20px;       /* 10px depuis la droite */
-      width: 100px;       /* largeur du logo */
-      height: auto;      /* hauteur proportionnelle */
-      z-index: 10000;    /* au-dessus de tout */
-      pointer-events: none; /* ne bloque pas les clics */
-      filter: drop-shadow(2px 2px 4px rgba(255, 255, 255, 0.3));
-    }
+/* POI styles */
+.poi-wrapper { display:flex; align-items:center; }
+.poi-text {
+  margin-left:6px;
+  cursor:pointer;
+  font-family: Arial;
+  font-size: 14px;
+  color: #000;
+  text-shadow: -1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff,1px 1px 0 #fff;
+  white-space: nowrap;
+  opacity:0;
+  pointer-events:none;
+  transition: opacity 0.2s ease;
+}
+.poi-text.visible { opacity:1; pointer-events:auto; }
+.poi-icon { width:24px; height:24px; }
 
+/* Popup */
+.popup-hr { margin:6px 0; height:1px; background: rgba(0,0,0,0.1); }
+.popup-contact { display:flex; align-items:center; font-size:13px; margin-bottom:4px; color:#333; }
+.popup-contact .popup-icon { width:16px; height:16px; margin-right:6px; object-fit:contain; }
+.popup-contact a { color:#0066cc; text-decoration:none; }
+.popup-contact a:hover { text-decoration:underline; }
 
-    #coords {
-      position: fixed;
-      top: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0, 0, 0, 0.8);
-      color: #fff;
-      padding: 8px 16px;
-      border-radius: 6px;
-      font-family: Arial, sans-serif;
-      font-size: 14px;
-      z-index: 9999;
-      pointer-events: none;
-    }
+.poi-popup { display:flex; width:300px; background:#fff; border-radius:6px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.25); font-family: Arial; }
+.poi-popup-left { flex:2; padding:10px; box-sizing:border-box; }
+.poi-popup-left .title { font-weight:bold; font-size:16px; margin-bottom:4px; }
+.poi-popup-left .info { font-size:14px; color:#333; text-align:justify; word-break:break-word; }
+.poi-popup-right { flex:1; position:relative; border-left:2px solid #fff; }
+.poi-popup-right img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
 
-    /* --- POI --- */
-    .poi-wrapper { display: flex; align-items: center; }
-    .poi-text {
-      margin-left: 6px;
-      cursor: pointer;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.2s ease;
-      font-family: Arial, sans-serif;
-      font-size: 14px;
-      color: #000;
-      white-space: nowrap;
-      text-shadow:
-        -1px -1px 0 #fff,
-         1px -1px 0 #fff,
-        -1px  1px 0 #fff,
-         1px  1px 0 #fff;
-      z-index: 10000;
-    }
-    .poi-text.visible { opacity: 1; pointer-events: auto; }
-    .poi-icon { width: 24px; height: 24px; }
+.no-default-popup .leaflet-popup-content-wrapper,
+.no-default-popup .leaflet-popup-tip { background:none; box-shadow:none; padding:0; }
+.leaflet-popup-tip { background:#fff; width:12px; height:12px; transform:rotate(45deg); margin:0 auto; top:-6px; border:none; }
+.no-default-popup .leaflet-popup-close-button {
+  position:absolute !important; top:11px !important; left:268px !important;
+  color:#000; font-size:13px !important; font-weight:bold; text-shadow:none;
+  line-height:normal !important; width:auto !important; height:auto !important;
+  text-align:center !important; padding:2px 4px !important; z-index:1000;
+}
 
-    /* --- Séparateur HR clair --- */
-    .popup-hr { margin: 6px 0; height: 1px; background: rgba(0,0,0,0.1); }
-
-    /* --- Ligne contact (téléphone / site) --- */
-    .popup-contact {
-      display: flex;
-      align-items: center;
-      margin-bottom: 4px;
-      font-size: 13px;
-      color: #333;
-    }
-    .popup-contact .popup-icon {
-      width: 16px;
-      height: 16px;
-      margin-right: 6px;
-      object-fit: contain;
-    }
-    .popup-contact a { color: #0066cc; text-decoration: none; }
-    .popup-contact a:hover { text-decoration: underline; }
-
-    /* --- Popup custom --- */
-    .poi-popup { display: flex; font-family: Arial, sans-serif; width: 300px; background: #fff; border-radius: 6px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.25); }
-    .poi-popup-left { flex: 2; padding: 10px; box-sizing: border-box; }
-    .poi-popup-left .title { font-weight: bold; font-size: 16px; margin-bottom: 4px; }
-    .poi-popup-left .info { font-size: 14px; color: #333; text-align: justify; word-break: break-word; }
-    .poi-popup-right { flex: 1; position: relative; border-left: 2px solid #fff; }
-    .poi-popup-right img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-
-    /* supprime le fond et l'ombre par défaut de Leaflet */
-    .no-default-popup .leaflet-popup-content-wrapper,
-    .no-default-popup .leaflet-popup-tip { background: none; box-shadow: none; padding: 0; }
-
-    /* flèche au-dessus */
-    .leaflet-popup-tip { background: #fff; width: 12px; height: 12px; transform: rotate(45deg); margin: 0 auto; top: -6px; border: none; }
-
-    /* Croix de fermeture */
-    .no-default-popup .leaflet-popup-close-button {
-      position: absolute !important; top: 11px !important; left: 268px !important;
-      color: #000; font-size: 13px !important; width: auto !important; height: auto !important;
-      line-height: normal !important; text-align: center !important; font-weight: bold;
-      text-shadow: none; padding: 2px 4px !important; z-index: 1000;
-    }
-  </style>
+/* CATEGORIES */
+#poi-categories {
+  position: fixed;
+  top:12px;
+  right:12px;
+  display:flex;
+  gap:8px;
+  z-index:10001;
+  font-family: Arial, sans-serif;
+}
+.poi-chip {
+  display:flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px;
+  background:#11a585; color:white; font-size:14px; cursor:pointer; user-select:none;
+  box-shadow:0 2px 6px rgba(0,0,0,0.25); opacity:0.5; transition:all 0.2s ease;
+  min-width:120px; max-width:140px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  justify-content:flex-start;
+}
+.poi-chip.active { opacity:1; }
+.poi-chip img { width:20px; height:20px; margin-right:6px; flex-shrink:0; }
+</style>
 </head>
-
 <body>
-  <div id="poi-labels-container" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:10000;"></div>
-  <div id="coords">Clique sur la carte</div>
-  <div id="map"></div>
-  <img src="icons/logo.png" id="logo" alt="Logo" />
+<div id="poi-labels-container" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:10000;"></div>
+<div id="coords">Clique sur la carte</div>
+<div id="map"></div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script>
-    const largeur = 4000;
-    const hauteur = 5558;
-    const limites = [[0,0],[hauteur,largeur]];
+<div id="poi-categories">
+  <div class="poi-chip active" data-category="restaurant"><img src="icons/restaurant.png">Restaurant</div>
+  <div class="poi-chip active" data-category="public"><img src="icons/public.png">Service public</div>
+  <div class="poi-chip active" data-category="nature"><img src="icons/monticon.png">Site naturel</div>
+  <div class="poi-chip active" data-category="tourisme"><img src="icons/tourism.png">Tourisme</div>
+</div>
 
-    const map = L.map('map', {
-      crs: L.CRS.Simple,
-      maxBounds: limites,
-      maxBoundsViscosity: 1.0,
-      attributionControl: false
-    });
+<img src="icons/logo.png" id="logo" alt="Logo" />
 
-    L.imageOverlay('map.png', limites).addTo(map);
-    map.fitBounds(limites);
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// --- MAP ---
+const largeur = 4000;
+const hauteur = 5558;
+const limites = [[0,0],[hauteur,largeur]];
 
-    const zoomInitial = map.getZoom();
-    const ZOOM_TEXTE_VISIBLE = zoomInitial + 1;
+const map = L.map('map', {
+  crs:L.CRS.Simple,
+  maxBounds:limites,
+  maxBoundsViscosity:1.0,
+  attributionControl:false
+});
+L.imageOverlay('map.png', limites).addTo(map);
+map.fitBounds(limites);
 
-    map.setMinZoom(zoomInitial - 1);
-    map.setMaxZoom(zoomInitial + 3);
-    map.panInsideBounds(limites);
-    setTimeout(() => { map.invalidateSize(); }, 100);
+const zoomInitial = map.getZoom();
+const ZOOM_TEXTE_VISIBLE = zoomInitial+1;
+map.setMinZoom(zoomInitial-1);
+map.setMaxZoom(zoomInitial+3);
+map.panInsideBounds(limites);
+setTimeout(()=>{map.invalidateSize();},100);
 
-    const coordsDiv = document.getElementById('coords');
+// --- COORDS ---
+const coordsDiv = document.getElementById('coords');
+map.on('click', e => {
+  const x = Math.round(e.latlng.lng);
+  const y = Math.round(e.latlng.lat);
+  coordsDiv.textContent = `X : ${x} | Y : ${y} (copié !)`;
+  navigator.clipboard.writeText(`${x},${y},`).catch(()=>{});
+  setTimeout(()=>{coordsDiv.textContent=`X : ${x} | Y : ${y}`;},1500);
+});
+map.on('mousemove', e => {
+  const x = Math.round(e.latlng.lng);
+  const y = Math.round(e.latlng.lat);
+  coordsDiv.textContent = `X : ${x} | Y : ${y}`;
+});
 
-    map.on('click', e => {
-      const x = Math.round(e.latlng.lng);
-      const y = Math.round(e.latlng.lat);
-      const coordsText = `${x}, ${y},`;
-      coordsDiv.textContent = `X : ${x} | Y : ${y} (copié !)`;
-      navigator.clipboard.writeText(coordsText).catch(err => console.error(err));
-      setTimeout(() => { coordsDiv.textContent = `X : ${x} | Y : ${y}`; }, 1500);
-    });
+// --- POI ---
+let selectedMarker = null;
+function ajouterPOI(x,y,texte,image,couleur='#000',popupData=null) {
+  const icon = L.divIcon({
+    className:'poi-wrapper',
+    html:`<img src="${image}" class="poi-icon"/><span class="poi-text" style="color:${couleur}">${texte}</span>`,
+    iconSize:[24,24],
+    iconAnchor:[12,12]
+  });
+  const marker = L.marker([y,x],{icon}).addTo(map);
+  const markerEl = marker.getElement();
+  const label = markerEl.querySelector('.poi-text');
 
-    map.on('mousemove', e => {
-      const x = Math.round(e.latlng.lng);
-      const y = Math.round(e.latlng.lat);
-      coordsDiv.textContent = `X : ${x} | Y : ${y}`;
-    });
+  if(popupData){
+    const phone = popupData.phone||'';
+    const website = popupData.website||'';
+    const phoneIcon = popupData.phoneIcon||'icons/phone.png';
+    const webIcon = popupData.webIcon||'icons/web.png';
+    const popupContent = `
+      <div class="poi-popup">
+        <div class="poi-popup-left">
+          <div class="title">${popupData.title||''}</div>
+          <div class="info">${popupData.info||''}</div>
+          <div class="popup-hr"></div>
+          ${phone?`<div class="popup-contact"><img src="${phoneIcon}" class="popup-icon"/><span>${phone}</span></div>`:''}
+          ${website?`<div class="popup-contact"><img src="${webIcon}" class="popup-icon"/><a href="${website}" target="_blank">${website}</a></div>`:''}
+        </div>
+        <div class="poi-popup-right"><img src="${popupData.image||''}"/></div>
+      </div>`;
+    marker.bindPopup(popupContent,{closeButton:true,offset:[0,5],autoClose:true,className:'no-default-popup'});
+    marker.on('popupclose',()=>{ if(selectedMarker===marker) selectedMarker=null; updateLabelVisibility(); });
+  }
 
-    function updatePOILabels() {
-      const show = map.getZoom() >= ZOOM_TEXTE_VISIBLE;
-      document.querySelectorAll('.poi-text').forEach(el => el.classList.toggle('visible', show));
+  function updateLabelVisibility(){
+    if(!label||!markerEl) return;
+    const isSelected = selectedMarker===marker;
+    const show = isSelected || map.getZoom()>=zoomInitial+1;
+    label.classList.toggle('visible',show);
+    markerEl.style.zIndex = isSelected?10000:'';
+  }
+  map.on('zoomend', updateLabelVisibility);
+  updateLabelVisibility();
+
+  marker.on('click', ()=>{ selectedMarker=marker; updateLabelVisibility(); if(popupData) marker.openPopup(); });
+  if(label) label.addEventListener('click', e=>{ e.stopPropagation(); selectedMarker=marker; updateLabelVisibility(); if(popupData) marker.openPopup(); });
+}
+
+// --- CATEGORIES ---
+const activeCategories = new Set(['restaurant','public','nature','tourisme']);
+const allPOIsWithCategory = [];
+const _ajouterPOI = ajouterPOI;
+ajouterPOI = function(x,y,texte,image,couleur='#000',popupData=null,category=''){
+  _ajouterPOI(x,y,texte,image,couleur,popupData);
+  const marker = map._layers[Object.keys(map._layers).pop()];
+  allPOIsWithCategory.push({marker,category});
+};
+document.querySelectorAll('.poi-chip').forEach(chip=>{
+  chip.addEventListener('click', ()=>{
+    const cat = chip.dataset.category;
+    if(activeCategories.has(cat)){
+      activeCategories.delete(cat);
+      chip.classList.remove('active');
+    } else {
+      activeCategories.add(cat);
+      chip.classList.add('active');
     }
-    map.on('zoomend', updatePOILabels);
-    updatePOILabels();
+    allPOIsWithCategory.forEach(poi=>{
+      if(activeCategories.has(poi.category)){
+        if(!map.hasLayer(poi.marker)) poi.marker.addTo(map);
+      } else {
+        if(map.hasLayer(poi.marker)) map.removeLayer(poi.marker);
+      }
+    });
+  });
+});
 
-    let selectedMarker = null;
+function ajouterPOC(x, y, texte, popupData = null) {
+  // Création temporaire du span pour mesurer sa largeur
+  const tempSpan = document.createElement('span');
+  tempSpan.style.fontWeight = 'bold';
+  tempSpan.style.fontSize = '16px';
+  tempSpan.style.visibility = 'hidden';
+  tempSpan.style.position = 'absolute';
+  tempSpan.textContent = texte;
+  document.body.appendChild(tempSpan);
+  const textWidth = tempSpan.offsetWidth;
+  document.body.removeChild(tempSpan);
 
-    function ajouterPOI(x, y, texte, image, couleur='#000', popupData=null) {
-      const icon = L.divIcon({
-        className: 'poi-wrapper',
-        html: `<img src="${image}" class="poi-icon"/><span class="poi-text" style="color:${couleur}">${texte}</span>`,
-        iconSize: [24,24],
-        iconAnchor: [12,12]
-      });
+  const icon = L.divIcon({
+    className: 'poi-wrapper',
+    html: `<span class="poi-text visible" style="
+      color:#000;
+      font-weight:bold;
+      font-size:16px;
+      white-space: nowrap;
+      display:inline-block;
+      text-align:center;
+    ">${texte}</span>`,
+    iconSize: [textWidth, 24],      // largeur du texte, hauteur arbitraire
+    iconAnchor: [textWidth / 2, 12] // centre horizontal, milieu vertical
+  });
 
-      const marker = L.marker([y,x], { icon }).addTo(map);
-      const markerEl = marker.getElement();
-      const label = markerEl.querySelector('.poi-text');
+  const marker = L.marker([y, x], { icon }).addTo(map);
 
-      if (popupData) {
-        const phone = popupData.phone || '';
-        const website = popupData.website || '';
-        const phoneIcon = popupData.phoneIcon || 'icons/phone.png';
-        const webIcon = popupData.webIcon || 'icons/web.png';
+  if (popupData) {
+    const image = popupData.image || '';
+    const population = popupData.population || '—';
+    const gentile = popupData.gentile || '—';
+    const altitude = popupData.altitude || '—';
+    const bref = popupData.bref || '';
 
-        const popupContent = `
-          <div class="poi-popup">
-            <div class="poi-popup-left">
-              <div class="title">${popupData.title || ''}</div>
-              <div class="info">${popupData.info || ''}</div>
-              <div class="popup-hr"></div>
-              ${phone ? `<div class="popup-contact"><img src="${phoneIcon}" class="popup-icon"/><span>${phone}</span></div>` : ''}
-              ${website ? `<div class="popup-contact"><img src="${webIcon}" class="popup-icon"/><a href="${website}" target="_blank">${website}</a></div>` : ''}
-            </div>
-            <div class="poi-popup-right"><img src="${popupData.image || ''}"/></div>
+    const popupContent = `
+      <div class="poi-popup" style="flex-direction: column;">
+        ${image ? `<div style="width:100%; height:150px; overflow:hidden; border-top-left-radius:6px; border-top-right-radius:6px;">
+          <img src="${image}" style="width:100%; height:100%; object-fit:cover;">
+        </div>` : ''}
+        <div class="poi-popup-left" style="padding:10px; box-sizing:border-box; width:100%;">
+          <div class="title">${texte}</div>
+          <div class="info" style="font-size:12px; color:gray;">
+            Pop. ${population} | Gent. ${gentile} | Alt. ${altitude}*
           </div>
-        `;
-        marker.bindPopup(popupContent, { closeButton:true, offset:[0,5], autoClose:true, className:'no-default-popup' });
-        marker.on('popupclose', ()=>{ if(selectedMarker===marker) selectedMarker=null; updateLabelVisibility(); });
-      }
+          <div style="font-size:10px; color:gray;">*Altitude moyenne</div>
+          <div class="popup-hr"></div>
+          <div class="title">En bref</div>
+          <div class="info">${bref}</div>
+        </div>
+      </div>
+    `;
 
-      function updateLabelVisibility() {
-        if(!label || !markerEl) return;
-        const isSelected = selectedMarker===marker;
-        const show = isSelected || map.getZoom() >= zoomInitial+1;
-        label.classList.toggle('visible', show);
-        markerEl.style.zIndex = isSelected ? 10000 : '';
-      }
-      map.on('zoomend', updateLabelVisibility);
-      updateLabelVisibility();
-
-      marker.on('click', ()=>{ selectedMarker=marker; updateLabelVisibility(); if(popupData) marker.openPopup(); });
-      if(label) label.addEventListener('click', e=>{ e.stopPropagation(); selectedMarker=marker; updateLabelVisibility(); if(popupData) marker.openPopup(); });
-    }
-
-    // --- Exemples de POI ---
-    ajouterPOI(2475,2384,'La Fuente Blanca','icons/grey.png','#b3b3b3',{
-      title:'La Fuente Blanca', info:'Centre équestre à Great Chaparral.',
-      image:'images/fuenteblanca.png', phone:'012-345-6789', website:'www.lafuenteblanca.com',
-      phoneIcon:'icons/phone.png', webIcon:'icons/web.png'
+    marker.bindPopup(popupContent, {
+      closeButton: true,
+      offset: [0, 5],
+      autoClose: true,
+      className: 'no-default-popup'
     });
+  }
 
-    ajouterPOI(1967,1152,'LSSD Davis Station','icons/official.png','#383d51',{
-      title:'LSSD Davis Station', info:'Bureau du shérif à Davis.',
-      image:'images/davissheriff.png', phone:'012-345-6789', website:'www.lafuenteblanca.com',
-      phoneIcon:'icons/phone.png', webIcon:'icons/web.png'
-    });
+  marker.on('click', () => {
+    if (popupData) marker.openPopup();
+  });
+}
 
-    ajouterPOI(1864,1142,'LSCOFD Fire Station 9','icons/fire.png','#e08090',{
-      title:'LSCOFD Fire Station 9', info:'Caserne de pompier à Davis.',
-      image:'images/davisfire.png', phone:'012-345-6789', website:'www.lafuenteblanca.com',
-      phoneIcon:'icons/phone.png', webIcon:'icons/web.png'
-    });
 
-    ajouterPOI(2129,2421,'Vinewood Sign','icons/vinewood.png','#9425de',{
-      title:'Vinewood Sign', info:'Attraction touristique à Vinewood Hills.',
-      image:'images/vinewoodsign.png', phone:'012-345-6789', website:'www.lafuenteblanca.com',
-      phoneIcon:'icons/phone.png', webIcon:'icons/web.png'
-    });
+// --- EXEMPLES ---
+ajouterPOI(2475,2384,'La Fuente Blanca','icons/grey.png','#b3b3b3',{
+  title:'La Fuente Blanca', info:'Centre équestre à Great Chaparral.',
+  image:'images/fuenteblanca.png', phone:'012-345-6789', website:'www.lafuenteblanca.com',
+  phoneIcon:'icons/phone.png', webIcon:'icons/web.png'
+},'restaurant');
 
-  </script>
+ajouterPOI(1610,4632,'LSSD Paletyo Bay Station','icons/official.png','#383d51',{
+  title:'LSSD Paleto Bay Station', info:'Bureau du shérif à Paleto Bay.',
+  image:'images/davissheriff.png', phone:'012-345-6789', website:'www.lafuenteblanca.com',
+  phoneIcon:'icons/phone.png', webIcon:'icons/web.png'
+},'public');
+
+ajouterPOI(1967,1152,'LSSD Davis Station','icons/official.png','#383d51',{
+  title:'LSSD Davis Station', info:'Bureau du shérif à Davis.',
+  image:'images/paletosd.png', phone:'012-345-6789', website:'www.lafuenteblanca.com',
+  phoneIcon:'icons/phone.png', webIcon:'icons/web.png'
+},'public');
+
+ajouterPOI(1864,1142,'LSCOFD Fire Station 9','icons/fire.png','#e08090',{
+  title:'LSCOFD Fire Station 9', info:'Caserne de pompier à Davis.',
+  image:'images/davisfire.png', phone:'012-345-6789', website:'www.lafuenteblanca.com',
+  phoneIcon:'icons/phone.png', webIcon:'icons/web.png'
+},'public');
+
+ajouterPOI(2129,2421,'Vinewood Sign','icons/vinewood.png','#9425de',{
+  title:'Vinewood Sign', info:'Attraction touristique à Vinewood Hills.',
+  image:'images/vinewoodsign.png', phone:'012-345-6789', website:'www.lafuenteblanca.com',
+  phoneIcon:'icons/phone.png', webIcon:'icons/web.png'
+},'tourisme');
+
+ajouterPOC(1738,1444, 'Los Santos', {
+  image: 'images/lscity.png',  // <-- ici l'image
+  population: '3,879 mil. (2024)',
+  gentile: 'Santenos',
+  altitude: '93 m',
+  bref: 'Los Santos, ville tentaculaire en San Andreas du Sud, est le cœur de l\'industrie cinématographique et télévisuelle. Non loin du panneau Vinewood, les studios Rockford et Richard Majestics proposent des visites pour découvrir leurs installations.'
+});
+
+ajouterPOC(1742,4802, 'Paleto Bay', {
+  image: 'images/paleto.png',  // <-- ici l'image
+  population: '10 591 (2024)',
+  gentile: 'Paletiens',
+  altitude: '19 m',
+  bref: 'Paleto Bay est une ville du comté de Los Santos, à San Andreas, États-Unis. La ville est célèbre pour son neck volcanique nommé Paleto Rock.'
+});
+
+</script>
 </body>
 </html>
